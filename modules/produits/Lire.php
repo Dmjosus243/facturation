@@ -1,38 +1,51 @@
 <?php
-// modules/produits/lire.php
 require_once __DIR__ . '/../../auth/session.php';
 require_login();
 require_once __DIR__ . '/../../includes/fonctions-produits.php';
 
-$id = $_GET['id'] ?? '';
 $barcode = $_GET['barcode'] ?? '';
+$product = $barcode ? find_product_by_barcode($barcode) : null;
 
-$product = null;
-if ($id) {
-    foreach (load_products() as $p) {
-        if ($p['id'] === $id) { $product = $p; break; }
-    }
-} elseif ($barcode) {
-    $product = find_product_by_barcode($barcode);
-}
-
-if (!$product) {
-    echo "Produit introuvable";
+// Traitement du formulaire si produit inconnu
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$product) {
+    $newProd = [
+        'id' => uniqid('p_'),
+        'barcode' => $barcode,
+        'name' => $_POST['name'] ?? '',
+        'price' => floatval($_POST['price'] ?? 0),
+        'vat_rate' => 16.0, // TVA par défaut
+        'stock' => intval($_POST['stock'] ?? 0),
+        'expiration' => $_POST['expiration'] ?? '',
+        'description' => ''
+    ];
+    add_or_update_product($newProd);
+    header('Location: liste.php');
     exit;
 }
 ?>
 <!doctype html>
 <html lang="fr">
-<head><meta charset="utf-8"><title>Détails produit</title></head>
+<head><meta charset="utf-8"><title>Produit</title></head>
 <body>
-<h1><?=htmlspecialchars($product['name'])?></h1>
-<ul>
-  <li>Code-barres: <?=htmlspecialchars($product['barcode'])?></li>
-  <li>Prix: <?=number_format($product['price'],2,',',' ')?> €</li>
-  <li>TVA: <?=number_format($product['vat_rate'],2,',',' ')?>%</li>
-  <li>Stock: <?=intval($product['stock'])?></li>
-  <li>Description: <?=htmlspecialchars($product['description'])?></li>
-</ul>
-<a href="liste.php">Retour à la liste</a>
+<?php if ($product): ?>
+  <h1><?=htmlspecialchars($product['name'])?></h1>
+  <ul>
+    <li>Code-barres: <?=htmlspecialchars($product['barcode'])?></li>
+    <li>Prix HT: <?=number_format($product['price'],2,',',' ')?> CDF</li>
+    <li>Stock: <?=intval($product['stock'])?></li>
+    <li>Date d’expiration: <?=htmlspecialchars($product['expiration'] ?? 'N/A')?></li>
+  </ul>
+  <a href="liste.php">Retour à la liste</a>
+<?php else: ?>
+  <h1>Produit inconnu</h1>
+  <form method="post">
+    <p>Code-barres: <?=htmlspecialchars($barcode)?></p>
+    <label>Nom du produit: <input name="name" required></label><br>
+    <label>Prix unitaire HT (CDF): <input type="number" step="0.01" name="price" required></label><br>
+    <label>Date d’expiration (MM-JJ-AAAA): <input type="text" name="expiration" required></label><br>
+    <label>Quantité initiale en stock: <input type="number" name="stock" required></label><br>
+    <button type="submit">Enregistrer</button>
+  </form>
+<?php endif; ?>
 </body>
 </html>
