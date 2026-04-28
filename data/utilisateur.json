@@ -1,0 +1,9 @@
+[
+    {
+        "id": "admin_initial",
+        "username": "superadmin",
+        "password": "Start1234!",
+        "role": "Super Administrateur",
+        "date_creation": "2026-04-19 00:00:00"  
+    }
+]
