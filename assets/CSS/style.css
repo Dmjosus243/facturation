@@ -143,3 +143,174 @@ input, select {
         padding: 0;
     }
 }
+
+/* Scanner CSS */
+/* Scanner container */
+.scanner-container {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    margin: 20px 0;
+}
+
+.scanner-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.btn-scanner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-scanner-small {
+    background: #28a745;
+    color: white;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.code-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.btn-small {
+    padding: 10px 15px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-danger {
+    background: #dc3545;
+}
+
+#interactive {
+    width: 100%;
+    max-width: 640px;
+    margin: 10px auto;
+    position: relative;
+}
+
+#interactive video {
+    width: 100%;
+    border-radius: 10px;
+}
+
+.scanner-result {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.scanner-result .success {
+    background: #d4edda;
+    color: #155724;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.scanner-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.9);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scanner-modal-content {
+    background: white;
+    width: 95%;
+    max-width: 500px;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.scanner-modal-header {
+    padding: 15px;
+    background: #333;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+}
+
+.scanner-modal-body {
+    position: relative;
+    background: #000;
+    min-height: 400px;
+}
+
+.scanner-modal-body video {
+    width: 100%;
+    height: auto;
+}
+
+.scan-area {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    height: 100px;
+    border: 2px solid #00ff00;
+    border-radius: 10px;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+}
+
+.scanner-modal-footer {
+    padding: 15px;
+    text-align: center;
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 28px;
+    cursor: pointer;
+}
+
+.btn-cancel {
+    background: #6c757d;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .scanner-header {
+        flex-direction: column;
+    }
+    
+    .code-input {
+        width: 100%;
+    }
+    
+    .btn-scanner, .btn-small {
+        width: 100%;
+    }
+}

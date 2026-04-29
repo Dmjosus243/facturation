@@ -1,0 +1,197 @@
+
+class WebAuthnAuth {
+    constructor() {
+        this.credentials = [];
+        this.loadCredentials();
+    }
+    
+    loadCredentials() {
+        const saved = localStorage.getItem('webauthn_credentials');
+        if (saved) {
+            this.credentials = JSON.parse(saved);
+        }
+    }
+    
+    saveCredentials() {
+        localStorage.setItem('webauthn_credentials', JSON.stringify(this.credentials));
+    }
+    
+    async register(username) {
+        if (!window.PublicKeyCredential) {
+            throw new Error('WebAuthn non supporté sur ce navigateur');
+        }
+        
+        const challenge = this.generateChallenge();
+        const userId = this.generateUserId(username);
+        
+        const publicKeyCredentialCreationOptions = {
+            challenge: challenge,
+            rp: {
+                name: "Système de Facturation",
+                id: window.location.hostname
+            },
+            user: {
+                id: userId,
+                name: username,
+                displayName: username
+            },
+            pubKeyCredParams: [
+                { type: "public-key", alg: -7 },  // ES256
+                { type: "public-key", alg: -257 } // RS256
+            ],
+            authenticatorSelection: {
+                authenticatorAttachment: "platform",
+                userVerification: "required",
+                residentKey: "required"
+            },
+            attestation: "none",
+            timeout: 60000
+        };
+        
+        try {
+            const credential = await navigator.credentials.create({
+                publicKey: publicKeyCredentialCreationOptions
+            });
+            
+            const storedCred = {
+                id: credential.id,
+                username: username,
+                rawId: this.arrayBufferToBase64(credential.rawId),
+                publicKey: this.arrayBufferToBase64(credential.response.getPublicKey())
+            };
+            
+            this.credentials.push(storedCred);
+            this.saveCredentials();
+            
+            return { success: true, message: "Empreinte digitale enregistrée avec succès" };
+        } catch (err) {
+            console.error(err);
+            return { success: false, message: err.message };
+        }
+    }
+    
+    async authenticate() {
+        if (!window.PublicKeyCredential) {
+            throw new Error('WebAuthn non supporté');
+        }
+        
+        const allowedCredentials = this.credentials.map(cred => ({
+            id: this.base64ToArrayBuffer(cred.rawId),
+            type: "public-key"
+        }));
+        
+        const publicKeyCredentialRequestOptions = {
+            challenge: this.generateChallenge(),
+            allowCredentials: allowedCredentials,
+            timeout: 60000,
+            userVerification: "required",
+            rpId: window.location.hostname
+        };
+        
+        try {
+            const assertion = await navigator.credentials.get({
+                publicKey: publicKeyCredentialRequestOptions
+            });
+            
+            // Trouver l'utilisateur correspondant
+            const credential = this.credentials.find(c => c.id === assertion.id);
+            if (credential) {
+                return { success: true, username: credential.username };
+            }
+            return { success: false, message: "Empreinte non reconnue" };
+        } catch (err) {
+            console.error(err);
+            return { success: false, message: err.message };
+        }
+    }
+    
+    generateChallenge() {
+        const array = new Uint8Array(32);
+        crypto.getRandomValues(array);
+        return array;
+    }
+    
+    generateUserId(username) {
+        const encoder = new TextEncoder();
+        return encoder.encode(username + Date.now());
+    }
+    
+    arrayBufferToBase64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+    
+    base64ToArrayBuffer(base64) {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+    
+    isSupported() {
+        return window.PublicKeyCredential !== undefined;
+    }
+}
+
+// Initialisation
+const webauthn = new WebAuthnAuth();
+
+// Fonctions globales pour la page login
+async function registerBiometric() {
+    const username = document.getElementById('username')?.value || 
+                    document.getElementById('biometricUsername')?.value;
+    if (!username) {
+        alert('Veuillez entrer votre nom d\'utilisateur d\'abord');
+        return;
+    }
+    
+    const result = await webauthn.register(username);
+    if (result.success) {
+        alert(result.message);
+        document.getElementById('registerBiometricBtn').style.display = 'none';
+        document.getElementById('useBiometricBtn').style.display = 'block';
+    } else {
+        alert('Erreur: ' + result.message);
+    }
+}
+
+async function loginWithBiometric() {
+    const result = await webauthn.authenticate();
+    if (result.success) {
+        // Envoyer au serveur pour vérification
+        const formData = new FormData();
+        formData.append('webauthn_username', result.username);
+        formData.append('webauthn_auth', 'true');
+        
+        const response = await fetch('../auth/login-biometric.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            window.location.href = '../index.php';
+        } else {
+            alert('Authentification échouée');
+        }
+    } else {
+        alert('Erreur: ' + result.message);
+    }
+}
+
+function checkBiometricSupport() {
+    const container = document.getElementById('biometricSection');
+    if (container && webauthn.isSupported()) {
+        container.style.display = 'block';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    checkBiometricSupport();
+});
