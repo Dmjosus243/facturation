@@ -1,61 +1,88 @@
 <?php
-// includes/fonctions-produits.php
-require_once __DIR__ . '/../config/config.php';
 
-function read_json($path) {
-    if (!file_exists($path)) return [];
-    $fp = fopen($path, 'r');
-    if (!$fp) return [];
-    flock($fp, LOCK_SH);
-    $data = stream_get_contents($fp);
-    flock($fp, LOCK_UN);
-    fclose($fp);
-    $arr = json_decode($data, true);
-    return is_array($arr) ? $arr : [];
+require_once dirname(__DIR__) . '/config/config.php';
+
+function chargerProduits() {
+    if (!file_exists(PRODUCTS_FILE)) {
+        return [];
+    }
+    $content = file_get_contents(PRODUCTS_FILE);
+    return json_decode($content, true) ?: [];
 }
 
-function write_json_atomic($path, $data) {
-    $tmp = $path . '.tmp';
-    $fp = fopen($tmp, 'c');
-    if (!$fp) return false;
-    if (!flock($fp, LOCK_EX)) { fclose($fp); return false; }
-    ftruncate($fp, 0);
-    rewind($fp);
-    fwrite($fp, json_encode($data, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE));
-    fflush($fp);
-    flock($fp, LOCK_UN);
-    fclose($fp);
-    rename($tmp, $path);
-    return true;
+function sauvegarderProduits($produits) {
+    file_put_contents(PRODUCTS_FILE, json_encode($produits, JSON_PRETTY_PRINT));
 }
 
-function load_products() {
-    return read_json(PRODUCTS_FILE);
+function getProchainIdProduit() {
+    $produits = chargerProduits();
+    if (empty($produits)) return 1;
+    $ids = array_column($produits, 'id');
+    return max($ids) + 1;
 }
 
-function save_products($products) {
-    return write_json_atomic(PRODUCTS_FILE, $products);
+function ajouterProduit($nom, $prix_ht, $code_barre = '', $tva = TVA_RATE) {
+    $produits = chargerProduits();
+    $id = getProchainIdProduit();
+    $produits[] = [
+        'id' => $id,
+        'nom' => $nom,
+        'prix_ht' => floatval($prix_ht),
+        'code_barre' => $code_barre,
+        'tva' => floatval($tva)
+    ];
+    sauvegarderProduits($produits);
+    return $id;
 }
 
-function find_product_by_barcode($barcode) {
-    foreach (load_products() as $p) {
-        if (isset($p['barcode']) && $p['barcode'] === $barcode) return $p;
+function modifierProduit($id, $nom, $prix_ht, $code_barre = '', $tva = TVA_RATE) {
+    $produits = chargerProduits();
+    foreach ($produits as &$p) {
+        if ($p['id'] == $id) {
+            $p['nom'] = $nom;
+            $p['prix_ht'] = floatval($prix_ht);
+            $p['code_barre'] = $code_barre;
+            $p['tva'] = floatval($tva);
+            sauvegarderProduits($produits);
+            return true;
+        }
+    }
+    return false;
+}
+
+function supprimerProduit($id) {
+    $produits = chargerProduits();
+    $nouveaux = array_filter($produits, function($p) use ($id) {
+        return $p['id'] != $id;
+    });
+    if (count($nouveaux) != count($produits)) {
+        sauvegarderProduits(array_values($nouveaux));
+        return true;
+    }
+    return false;
+}
+
+function getProduitById($id) {
+    $produits = chargerProduits();
+    foreach ($produits as $p) {
+        if ($p['id'] == $id) {
+            return $p;
+        }
     }
     return null;
 }
 
-function add_or_update_product($product) {
-    $products = load_products();
-    // if id provided, update; else create id
-    if (empty($product['id'])) $product['id'] = uniqid('p_');
-    $found = false;
-    foreach ($products as &$p) {
-        if ($p['id'] === $product['id'] || (isset($product['barcode']) && $p['barcode'] === $product['barcode'])) {
-            $p = array_merge($p, $product);
-            $found = true;
-            break;
+function getProduitByCodeBarre($code) {
+    $produits = chargerProduits();
+    foreach ($produits as $p) {
+        if ($p['code_barre'] === $code) {
+            return $p;
         }
     }
-    if (!$found) $products[] = $product;
-    return save_products($products);
+    return null;
 }
+
+function getProduitsListe() {
+    return chargerProduits();
+}
+?>

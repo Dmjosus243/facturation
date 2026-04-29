@@ -1,32 +1,61 @@
 <?php
-require_once __DIR__ . '/../auth/session.php';
-require_login();
-require_once __DIR__ . '/../includes/fonctions-factures.php';
+// rapports/rapport-mensuel.php
+require_once '../includes/fonctions-auth.php';
+require_once '../includes/fonctions-factures.php';
 
-$currentMonth = date('Y-m');
-$invoices = load_invoices();
-$monthly = [];
-
-foreach ($invoices as $inv) {
-    $date = substr($inv['created_at'], 0, 7); // format YYYY-MM
-    if ($date === $currentMonth) {
-        $monthly[] = $inv;
-    }
+if (!estConnecte()) {
+    header('Location: ../auth/login.php');
+    exit;
 }
+
+$mois = $_GET['mois'] ?? date('m');
+$annee = $_GET['annee'] ?? date('Y');
+$stats = getStatsMensuelles($mois, $annee);
+
+require_once '../includes/header.php';
 ?>
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport mensuel</title></head><body>
-<h1>Rapport mensuel de <?=htmlspecialchars($currentMonth)?></h1>
-<table border="1">
-<tr><th>ID</th><th>Date</th><th>Total HT</th><th>TVA</th><th>Total TTC</th></tr>
-<?php foreach($monthly as $inv): ?>
-<tr>
-  <td><?=htmlspecialchars($inv['id'])?></td>
-  <td><?=htmlspecialchars($inv['created_at'])?></td>
-  <td><?=number_format($inv['total_ht'],2)?></td>
-  <td><?=number_format($inv['total_vat'],2)?></td>
-  <td><?=number_format($inv['total_ttc'],2)?></td>
-</tr>
-<?php endforeach; ?>
-</table>
-<p>Total factures du mois: <?=count($monthly)?></p>
-</body></html>
+
+<h2>Rapport mensuel</h2>
+
+<form method="get">
+    <label>Mois :</label>
+    <select name="mois">
+        <?php for ($m = 1; $m <= 12; $m++): ?>
+            <option value="<?php echo str_pad($m, 2, '0', STR_PAD_LEFT); ?>" <?php echo ($mois == str_pad($m, 2, '0', STR_PAD_LEFT)) ? 'selected' : ''; ?>>
+                <?php echo date('F', mktime(0, 0, 0, $m, 1)); ?>
+            </option>
+        <?php endfor; ?>
+    </select>
+    <label>Année :</label>
+    <input type="number" name="annee" value="<?php echo $annee; ?>" min="2020" max="2030">
+    <button type="submit">Afficher</button>
+</form>
+
+<div class="stats">
+    <h3>Résumé de <?php echo date('F Y', strtotime("$annee-$mois-01")); ?></h3>
+    <p>Nombre de factures : <?php echo $stats['nombre']; ?></p>
+    <p>Total HT : <?php echo number_format($stats['total_ht'], 2); ?> €</p>
+    <p>Total TVA : <?php echo number_format($stats['total_tva'], 2); ?> €</p>
+    <p>Total TTC : <?php echo number_format($stats['total_ttc'], 2); ?> €</p>
+</div>
+
+<?php if (!empty($stats['factures'])): ?>
+    <h3>Liste des factures</h3>
+    <table>
+        <thead>
+            <tr><th>N° facture</th><th>Date</th><th>Client</th><th>Total TTC</th></tr>
+        </thead>
+        <tbody>
+            <?php foreach ($stats['factures'] as $f): ?>
+            <tr>
+                <td><?php echo $f['id']; ?></td>
+                <td><?php echo date('d/m/Y', strtotime($f['date'])); ?></td>
+                <td><?php echo htmlspecialchars($f['client_nom']); ?></td>
+                <td><?php echo number_format($f['total_ttc'], 2); ?> €</td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+<?php endif; ?>
+
+<?php require_once '../includes/footer.php'; ?>

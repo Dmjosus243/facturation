@@ -1,16 +1,20 @@
 <?php
-require_once __DIR__ . '/auth/session.php';
-require_login();
+require_once 'includes/fonctions-auth.php';
+require_once 'includes/header.php';
 ?>
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>POS</title>
-<link rel="stylesheet" href="assets/css/style.css"></head><body>
-<?php include 'includes/header.php'; ?>
-<h1>Tableau de bord</h1>
-<ul>
-  <li><a href="modules/produits/liste.php">Produits</a></li>
-  <li><a href="modules/facturation/nouvelle-facture.php">Nouvelle facture</a></li>
-  <li><a href="admin/gestion-comptes.php">Administration</a></li>
-  <li><a href="auth/logout.php">Se déconnecter</a></li>
-</ul>
-<?php include 'includes/footer.php'; ?>
-</body></html>
+
+<div class="dashboard">
+    <h2>Bienvenue sur le système de facturation</h2>
+    <?php if (estConnecte()): ?>
+        <p>Connecté en tant que : <?php echo htmlspecialchars($_SESSION['username']); ?></p>
+        <div class="menu-rapide">
+            <a href="modules/facturation/nouvelle-facture.php" class="btn">Créer une facture</a>
+            <a href="modules/produits/liste.php" class="btn">Gérer les produits</a>
+            <a href="rapports/rapport-journalier.php" class="btn">Voir les rapports</a>
+        </div>
+    <?php else: ?>
+        <p>Veuillez vous <a href="auth/login.php">connecter</a> pour accéder à l'application.</p>
+    <?php endif; ?>
+</div>
+
+<?php require_once 'includes/footer.php'; ?>

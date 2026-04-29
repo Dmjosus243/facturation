@@ -1,27 +1,37 @@
 <?php
-require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../includes/fonctions-auth.php';
-session_start();
+// auth/login.php
+require_once '../includes/fonctions-auth.php';
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $user = $_POST['username'] ?? '';
-    $pass = $_POST['password'] ?? '';
-    if (verify_credentials($user, $pass)) {
-        $_SESSION['user'] = $user;
-        header('Location: /facturation/index.php');
+    $username = $_POST['username'] ?? '';
+    $password = $_POST['password'] ?? '';
+    
+    $user = verifierIdentifiants($username, $password);
+    if ($user) {
+        connecterUtilisateur($user);
+        header('Location: ../index.php');
         exit;
     } else {
-        $error = 'Identifiants invalides';
+        $error = 'Identifiants incorrects';
     }
 }
 ?>
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Login</title></head><body>
-<h1>Connexion</h1>
-<?php if($error) echo "<p style='color:red'>".htmlspecialchars($error)."</p>"; ?>
-<form method="post">
-  <label>Utilisateur <input name="username"></label><br>
-  <label>Mot de passe <input name="password" type="password"></label><br>
-  <button>Se connecter</button>
-</form>
-</body></html>
+
+<?php require_once '../includes/header.php'; ?>
+
+<div class="login-form">
+    <h2>Connexion</h2>
+    <?php if ($error): ?>
+        <div class="error"><?php echo $error; ?></div>
+    <?php endif; ?>
+    <form method="post">
+        <label>Nom d'utilisateur</label>
+        <input type="text" name="username" required>
+        <label>Mot de passe</label>
+        <input type="password" name="password" required>
+        <button type="submit">Se connecter</button>
+    </form>
+</div>
+
+<?php require_once '../includes/footer.php'; ?>

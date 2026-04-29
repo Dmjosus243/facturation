@@ -1,6 +1,6 @@
 <?php
-session_start();
-session_unset();
-session_destroy();
-header('Location: login.php');
+require_once '../includes/fonctions-auth.php';
+deconnecter();
+header('Location: ../index.php');
 exit;
+?>

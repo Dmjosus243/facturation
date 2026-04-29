@@ -1,71 +1,79 @@
 <?php
-require_once __DIR__ . '/../../auth/session.php';
-require_login();
-require_once __DIR__ . '/../../includes/fonctions-produits.php';
-require_once __DIR__ . '/../../includes/fonctions-factures.php';
+// modules/facturation/nouvelle-facture.php
+require_once '../../includes/fonctions-auth.php';
+require_once '../../includes/fonctions-produits.php';
 
-if (!isset($_SESSION['cart'])) $_SESSION['cart'] = [];
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_invoice'])) {
-    // construire items depuis le panier
-    $items = [];
-    foreach ($_SESSION['cart'] as $barcode => $qty) {
-        $p = find_product_by_barcode($barcode);
-        if (!$p) continue;
-        $items[] = [
-            'product_id'=>$p['id'],
-            'barcode'=>$p['barcode'],
-            'name'=>$p['name'],
-            'qty'=>$qty,
-            'unit_price'=>$p['price'],
-            'vat_rate'=>$p['vat_rate']
-        ];
-    }
-    $invoice_id = create_invoice($items, ['cashier'=>$_SESSION['user'] ?? 'unknown']);
-    if ($invoice_id) {
-        $_SESSION['cart'] = [];
-        header('Location: afficher-facture.php?id=' . urlencode($invoice_id));
-        exit;
-    } else {
-        $error = 'Impossible de créer la facture';
-    }
+if (!estConnecte()) {
+    header('Location: ../../auth/login.php');
+    exit;
 }
+
+$produits = getProduitsListe();
+
+require_once '../../includes/header.php';
 ?>
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Nouvelle facture</title></head><body>
-<?php include __DIR__ . '/../../includes/header.php'; ?>
-<h1>Nouvelle facture</h1>
 
-<!-- Zone scanner + saisie manuelle -->
-<div id="scanner">
-  <video id="video" width="320" height="240"></video>
-  <p>Code détecté: <span id="detected">—</span></p>
-  <input id="barcodeInput" placeholder="Code-barres">
-  <input id="qtyInput" type="number" value="1" min="1">
-  <button id="addManual">Ajouter</button>
-</div>
+<h2>Nouvelle facture</h2>
 
-<!-- Panier -->
-<form method="post">
-  <table border="1">
-    <thead><tr><th>Produit</th><th>Qté</th><th>PU</th><th>HT</th></tr></thead>
-    <tbody>
-    <?php
-    $total_ht = 0; $total_vat = 0;
-    foreach ($_SESSION['cart'] as $barcode => $qty) {
-        $p = find_product_by_barcode($barcode);
-        if (!$p) continue;
-        $line_ht = $p['price'] * $qty;
-        $line_vat = $line_ht * ($p['vat_rate']/100.0);
-        $total_ht += $line_ht; $total_vat += $line_vat;
-        echo "<tr><td>".htmlspecialchars($p['name'])."</td><td>{$qty}</td><td>".number_format($p['price'],2)."</td><td>".number_format($line_ht,2)."</td></tr>";
-    }
-    ?>
-    </tbody>
-  </table>
-  <p>Total HT: <?=number_format($total_ht,2)?> TVA: <?=number_format($total_vat,2)?> Total TTC: <?=number_format($total_ht+$total_vat,2)?></p>
-  <button name="create_invoice" type="submit">Créer facture</button>
+<form method="post" action="calcul.php" id="factureForm">
+    <div class="form-group">
+        <label>Nom du client</label>
+        <input type="text" name="client_nom" required>
+    </div>
+    
+    <h3>Lignes de facture</h3>
+    <table id="lignesTable">
+        <thead>
+            <tr><th>Produit</th><th>Quantité</th><th>Prix unitaire HT</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            <tr class="ligne">
+                <td>
+                    <select name="produit_id[]" class="produit-select" required>
+                        <option value="">-- Sélectionner --</option>
+                        <?php foreach ($produits as $p): ?>
+                            <option value="<?php echo $p['id']; ?>" data-prix="<?php echo $p['prix_ht']; ?>">
+                                <?php echo htmlspecialchars($p['nom']); ?> (<?php echo $p['prix_ht']; ?>€)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </td>
+                <td><input type="number" name="quantite[]" class="quantite" step="0.01" min="0.01" required></td>
+                <td><input type="text" class="prix-unitaire" readonly></td>
+                <td><button type="button" class="remove-row">X</button></td>
+            </tr>
+        </tbody>
+    </table>
+    <button type="button" id="addRow">Ajouter une ligne</button>
+    <br><br>
+    <button type="submit">Calculer la facture</button>
 </form>
 
-<script src="/facturation/assets/js/scanner.js"></script>
-<?php include __DIR__ . '/../../includes/footer.php'; ?>
-</body></html>
+<script>
+    // Gestion dynamique des lignes
+    const table = document.getElementById('lignesTable').getElementsByTagName('tbody')[0];
+    document.getElementById('addRow').addEventListener('click', function() {
+        const newRow = table.rows[0].cloneNode(true);
+        newRow.querySelectorAll('input, select').forEach(el => el.value = '');
+        newRow.querySelector('.prix-unitaire').value = '';
+        table.appendChild(newRow);
+    });
+    
+    table.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-row')) {
+            if (table.rows.length > 1) {
+                e.target.closest('tr').remove();
+            }
+        }
+    });
+    
+    table.addEventListener('change', function(e) {
+        if (e.target.classList.contains('produit-select')) {
+            const row = e.target.closest('tr');
+            const prix = e.target.options[e.target.selectedIndex].getAttribute('data-prix');
+            row.querySelector('.prix-unitaire').value = prix ? parseFloat(prix).toFixed(2) + ' €' : '';
+        }
+    });
+</script>
+
+<?php require_once '../../includes/footer.php'; ?>

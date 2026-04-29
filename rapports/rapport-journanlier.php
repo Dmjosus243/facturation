@@ -1,32 +1,52 @@
 <?php
-require_once __DIR__ . '/../auth/session.php';
-require_login();
-require_once __DIR__ . '/../includes/fonctions-factures.php';
+// rapports/rapport-journalier.php
+require_once '../includes/fonctions-auth.php';
+require_once '../includes/fonctions-factures.php';
 
-$today = date('Y-m-d');
-$invoices = load_invoices();
-$daily = [];
-
-foreach ($invoices as $inv) {
-    $date = substr($inv['created_at'], 0, 10); // format YYYY-MM-DD
-    if ($date === $today) {
-        $daily[] = $inv;
-    }
+if (!estConnecte()) {
+    header('Location: ../auth/login.php');
+    exit;
 }
+
+$date = $_GET['date'] ?? date('Y-m-d');
+$stats = getStatsJournalieres($date);
+
+require_once '../includes/header.php';
 ?>
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport journalier</title></head><body>
-<h1>Rapport journalier du <?=htmlspecialchars($today)?></h1>
-<table border="1">
-<tr><th>ID</th><th>Date</th><th>Total HT</th><th>TVA</th><th>Total TTC</th></tr>
-<?php foreach($daily as $inv): ?>
-<tr>
-  <td><?=htmlspecialchars($inv['id'])?></td>
-  <td><?=htmlspecialchars($inv['created_at'])?></td>
-  <td><?=number_format($inv['total_ht'],2)?></td>
-  <td><?=number_format($inv['total_vat'],2)?></td>
-  <td><?=number_format($inv['total_ttc'],2)?></td>
-</tr>
-<?php endforeach; ?>
-</table>
-<p>Total factures du jour: <?=count($daily)?></p>
-</body></html>
+
+<h2>Rapport journalier</h2>
+
+<form method="get">
+    <label>Date :</label>
+    <input type="date" name="date" value="<?php echo $date; ?>">
+    <button type="submit">Afficher</button>
+</form>
+
+<div class="stats">
+    <h3>Résumé du <?php echo date('d/m/Y', strtotime($date)); ?></h3>
+    <p>Nombre de factures : <?php echo $stats['nombre']; ?></p>
+    <p>Total HT : <?php echo number_format($stats['total_ht'], 2); ?> €</p>
+    <p>Total TVA : <?php echo number_format($stats['total_tva'], 2); ?> €</p>
+    <p>Total TTC : <?php echo number_format($stats['total_ttc'], 2); ?> €</p>
+</div>
+
+<?php if (!empty($stats['factures'])): ?>
+    <h3>Liste des factures</h3>
+    <table>
+        <thead>
+            <tr><th>N° facture</th><th>Client</th><th>Heure</th><th>Total TTC</th></tr>
+        </thead>
+        <tbody>
+            <?php foreach ($stats['factures'] as $f): ?>
+            <tr>
+                <td><?php echo $f['id']; ?></td>
+                <td><?php echo htmlspecialchars($f['client_nom']); ?></td>
+                <td><?php echo date('H:i', strtotime($f['date'])); ?></td>
+                <td><?php echo number_format($f['total_ttc'], 2); ?> €</td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+<?php endif; ?>
+
+<?php require_once '../includes/footer.php'; ?>

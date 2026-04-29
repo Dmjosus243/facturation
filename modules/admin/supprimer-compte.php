@@ -1,26 +1,26 @@
 <?php
-require_once __DIR__ . '/../../auth/session.php';
-require_login();
-require_once __DIR__ . '/../../includes/fonctions-auth.php';
+// admin/supprimer-compte.php
+require_once '../includes/fonctions-auth.php';
 
-// Vérifier rôle
-if (!check_role('SUPER_ADMIN')) {
-    echo "Accès refusé.";
+if (!estAdmin()) {
+    header('Location: ../auth/login.php');
     exit;
 }
 
-$username = $_GET['username'] ?? '';
-if ($username) {
-    $users = load_users();
-    $newUsers = [];
-    foreach ($users as $u) {
-        if ($u['username'] !== $username) {
-            $newUsers[] = $u;
-        }
-    }
-    save_users($newUsers);
-    header('Location: gestion-comptes.php');
+$id = $_GET['id'] ?? 0;
+$users = chargerUtilisateurs();
+
+// Empêcher la suppression de son propre compte
+if ($id == $_SESSION['user_id']) {
+    header('Location: gestion-comptes.php?error=Impossible de supprimer votre propre compte');
     exit;
-} else {
-    echo "Utilisateur non spécifié.";
 }
+
+$users = array_filter($users, function($u) use ($id) {
+    return $u['id'] != $id;
+});
+sauvegarderUtilisateurs(array_values($users));
+
+header('Location: gestion-comptes.php');
+exit;
+?>

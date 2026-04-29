@@ -1,28 +1,53 @@
 <?php
-require_once __DIR__ . '/../../auth/session.php';
-require_login();
-require_once __DIR__ . '/../../includes/fonctions-factures.php';
-$id = $_GET['id'] ?? '';
-$inv = load_invoice($id);
-if (!$inv) { echo "Facture introuvable"; exit; }
+// modules/facturation/afficher-facture.php
+require_once '../../includes/fonctions-auth.php';
+require_once '../../includes/fonctions-factures.php';
+
+if (!estConnecte()) {
+    header('Location: ../../auth/login.php');
+    exit;
+}
+
+$id = $_GET['id'] ?? 0;
+$facture = getFactureById($id);
+
+if (!$facture) {
+    header('Location: ../../index.php');
+    exit;
+}
+
+require_once '../../includes/header.php';
 ?>
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Facture</title></head><body>
-<h1>Facture <?=htmlspecialchars($inv['id'])?></h1>
-<p>Date: <?=htmlspecialchars($inv['created_at'])?></p>
-<table border="1">
-<thead><tr><th>Produit</th><th>Qté</th><th>PU</th><th>HT</th><th>TVA</th></tr></thead>
-<tbody>
-<?php foreach($inv['items'] as $it): ?>
-<tr>
-  <td><?=htmlspecialchars($it['name'])?></td>
-  <td><?=intval($it['qty'])?></td>
-  <td><?=number_format($it['unit_price'],2,',',' ')?></td>
-  <td><?=number_format($it['line_ht'],2,',',' ')?></td>
-  <td><?=number_format($it['line_vat'],2,',',' ')?></td>
-</tr>
-<?php endforeach; ?>
-</tbody>
+
+<h2>Facture n° <?php echo $facture['id']; ?></h2>
+<p>Date : <?php echo date('d/m/Y H:i', strtotime($facture['date'])); ?></p>
+<p>Client : <?php echo htmlspecialchars($facture['client_nom']); ?></p>
+
+<table class="facture-table">
+    <thead>
+        <tr><th>Produit</th><th>Qté</th><th>Prix unitaire HT</th><th>TVA</th><th>Total HT</th><th>Total TVA</th><th>Total TTC</th></tr>
+    </thead>
+    <tbody>
+        <?php foreach ($facture['lignes'] as $ligne): ?>
+        <tr>
+            <td><?php echo htmlspecialchars($ligne['produit_nom']); ?></td>
+            <td><?php echo $ligne['quantite']; ?></td>
+            <td><?php echo number_format($ligne['prix_unitaire_ht'], 2); ?> €</td>
+            <td><?php echo ($ligne['tva'] * 100); ?>%</td>
+            <td><?php echo number_format($ligne['total_ht'], 2); ?> €</td>
+            <td><?php echo number_format($ligne['total_tva'], 2); ?> €</td>
+            <td><?php echo number_format($ligne['total_ttc'], 2); ?> €</td>
+        </tr>
+        <?php endforeach; ?>
+    </tbody>
+    <tfoot>
+        <tr><th colspan="4">Totaux</th><th><?php echo number_format($facture['total_ht'], 2); ?> €</th><th><?php echo number_format($facture['total_tva'], 2); ?> €</th><th><?php echo number_format($facture['total_ttc'], 2); ?> €</th></tr>
+    </tfoot>
 </table>
-<p>Total HT: <?=number_format($inv['total_ht'],2,',',' ')?> TVA: <?=number_format($inv['total_vat'],2,',',' ')?> TTC: <?=number_format($inv['total_ttc'],2,',',' ')?></p>
-<button onclick="window.print()">Imprimer</button>
-</body></html>
+
+<div class="actions">
+    <button onclick="window.print()">Imprimer</button>
+    <a href="nouvelle-facture.php" class="btn">Nouvelle facture</a>
+</div>
+
+<?php require_once '../../includes/footer.php'; ?>

@@ -1,27 +1,28 @@
-<?php
-// includes/header.php
-?>
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <title>Système de facturation</title>
-  <link rel="stylesheet" href="/facturation/assets/css/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo APP_NAME; ?></title>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/style.css">
 </head>
 <body>
-<header>
-  <h1>Système de caisse - Supermarché</h1>
-  <nav>
-    <ul>
-      <li><a href="/facturation/index.php">Accueil</a></li>
-      <li><a href="/facturation/modules/produits/liste.php">Produits</a></li>
-      <li><a href="/facturation/modules/facturation/nouvelle-facture.php">Nouvelle facture</a></li>
-      <li><a href="/facturation/rapports/rapport-journalier.php">Rapport journalier</a></li>
-      <li><a href="/facturation/rapports/rapport-mensuel.php">Rapport mensuel</a></li>
-      <li><a href="/facturation/admin/gestion-comptes.php">Administration</a></li>
-      <li><a href="/facturation/auth/logout.php">Déconnexion</a></li>
-    </ul>
-  </nav>
-  <hr>
-</header>
-<main>
+    <header>
+        <h1><?php echo APP_NAME; ?></h1>
+        <nav>
+            <?php if (isset($_SESSION['user_id'])): ?>
+                <span>Bonjour, <?php echo htmlspecialchars($_SESSION['username']); ?></span>
+                <a href="<?php echo BASE_URL; ?>modules/facturation/nouvelle-facture.php">Nouvelle facture</a>
+                <a href="<?php echo BASE_URL; ?>modules/produits/liste.php">Produits</a>
+                <a href="<?php echo BASE_URL; ?>rapports/rapport-journalier.php">Rapport journalier</a>
+                <a href="<?php echo BASE_URL; ?>rapports/rapport-mensuel.php">Rapport mensuel</a>
+                <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+                    <a href="<?php echo BASE_URL; ?>admin/gestion-comptes.php">Gestion comptes</a>
+                <?php endif; ?>
+                <a href="<?php echo BASE_URL; ?>auth/logout.php">Déconnexion</a>
+            <?php else: ?>
+                <a href="<?php echo BASE_URL; ?>auth/login.php">Connexion</a>
+            <?php endif; ?>
+        </nav>
+    </header>
+    <main>

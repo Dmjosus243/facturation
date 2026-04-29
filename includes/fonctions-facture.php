@@ -1,62 +1,116 @@
 <?php
-// includes/fonctions-factures.php
-require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/fonctions-produits.php';
 
-function load_invoices() {
-    return read_json(INVOICES_FILE);
-}
+require_once dirname(__DIR__) . '/config/config.php';
+require_once 'fonctions-produits.php';
 
-function save_invoices($invoices) {
-    return write_json_atomic(INVOICES_FILE, $invoices);
-}
-
-function create_invoice($items, $meta = []) {
-    // items: array of ['product_id','barcode','name','qty','unit_price','vat_rate']
-    $total_ht = 0.0; $total_vat = 0.0;
-    foreach ($items as &$it) {
-        $line_ht = $it['unit_price'] * intval($it['qty']);
-        $line_vat = $line_ht * ($it['vat_rate']/100.0);
-        $it['line_ht'] = round($line_ht,2);
-        $it['line_vat'] = round($line_vat,2);
-        $it['line_ttc'] = round($line_ht + $line_vat,2);
-        $total_ht += $line_ht;
-        $total_vat += $line_vat;
-        // decrement stock best-effort
-        decrement_product_stock($it['product_id'], $it['qty']);
+function chargerFactures() {
+    if (!file_exists(INVOICES_FILE)) {
+        return [];
     }
-    $invoice = [
-        'id' => uniqid('inv_'),
-        'created_at' => date('c'),
-        'items' => $items,
-        'total_ht' => round($total_ht,2),
-        'total_vat' => round($total_vat,2),
-        'total_ttc' => round($total_ht + $total_vat,2),
-        'meta' => $meta
-    ];
-    $invoices = load_invoices();
-    $invoices[] = $invoice;
-    if (!save_invoices($invoices)) return false;
-    return $invoice['id'];
+    $content = file_get_contents(INVOICES_FILE);
+    return json_decode($content, true) ?: [];
 }
 
-function load_invoice($id) {
-    foreach (load_invoices() as $inv) {
-        if ($inv['id'] === $id) return $inv;
+function sauvegarderFactures($factures) {
+    file_put_contents(INVOICES_FILE, json_encode($factures, JSON_PRETTY_PRINT));
+}
+
+function getProchainIdFacture() {
+    $factures = chargerFactures();
+    if (empty($factures)) return 1;
+    $ids = array_column($factures, 'id');
+    return max($ids) + 1;
+}
+
+function creerFacture($client_nom, $lignes) {
+    $factures = chargerFactures();
+    $id = getProchainIdFacture();
+    
+    $total_ht = 0;
+    $total_tva = 0;
+    
+    foreach ($lignes as &$ligne) {
+        $produit = getProduitById($ligne['produit_id']);
+        if (!$produit) continue;
+        
+        $ligne['produit_nom'] = $produit['nom'];
+        $ligne['prix_unitaire_ht'] = $produit['prix_ht'];
+        $ligne['tva'] = $produit['tva'];
+        $ligne['total_ht'] = $ligne['quantite'] * $ligne['prix_unitaire_ht'];
+        $ligne['total_tva'] = $ligne['total_ht'] * $ligne['tva'];
+        $ligne['total_ttc'] = $ligne['total_ht'] + $ligne['total_tva'];
+        
+        $total_ht += $ligne['total_ht'];
+        $total_tva += $ligne['total_tva'];
+    }
+    
+    $total_ttc = $total_ht + $total_tva;
+    
+    $facture = [
+        'id' => $id,
+        'date' => date('Y-m-d H:i:s'),
+        'client_nom' => $client_nom,
+        'lignes' => $lignes,
+        'total_ht' => $total_ht,
+        'total_tva' => $total_tva,
+        'total_ttc' => $total_ttc
+    ];
+    
+    $factures[] = $facture;
+    sauvegarderFactures($factures);
+    return $id;
+}
+
+function getFactureById($id) {
+    $factures = chargerFactures();
+    foreach ($factures as $f) {
+        if ($f['id'] == $id) {
+            return $f;
+        }
     }
     return null;
 }
 
-function decrement_product_stock($product_id, $qty) {
-    $products = load_products();
-    $changed = false;
-    foreach ($products as &$p) {
-        if ($p['id'] === $product_id) {
-            $p['stock'] = max(0, intval($p['stock']) - intval($qty));
-            $changed = true;
-            break;
-        }
-    }
-    if ($changed) return save_products($products);
-    return false;
+function getFacturesByDate($date) {
+    $factures = chargerFactures();
+    return array_filter($factures, function($f) use ($date) {
+        return substr($f['date'], 0, 10) === $date;
+    });
 }
+
+function getFacturesByMois($mois, $annee) {
+    $factures = chargerFactures();
+    return array_filter($factures, function($f) use ($mois, $annee) {
+        $date = strtotime($f['date']);
+        return date('m', $date) == $mois && date('Y', $date) == $annee;
+    });
+}
+
+function getStatsJournalieres($date) {
+    $factures = getFacturesByDate($date);
+    $total_ht = array_sum(array_column($factures, 'total_ht'));
+    $total_tva = array_sum(array_column($factures, 'total_tva'));
+    $total_ttc = array_sum(array_column($factures, 'total_ttc'));
+    return [
+        'nombre' => count($factures),
+        'total_ht' => $total_ht,
+        'total_tva' => $total_tva,
+        'total_ttc' => $total_ttc,
+        'factures' => $factures
+    ];
+}
+
+function getStatsMensuelles($mois, $annee) {
+    $factures = getFacturesByMois($mois, $annee);
+    $total_ht = array_sum(array_column($factures, 'total_ht'));
+    $total_tva = array_sum(array_column($factures, 'total_tva'));
+    $total_ttc = array_sum(array_column($factures, 'total_ttc'));
+    return [
+        'nombre' => count($factures),
+        'total_ht' => $total_ht,
+        'total_tva' => $total_tva,
+        'total_ttc' => $total_ttc,
+        'factures' => $factures
+    ];
+}
+?>
